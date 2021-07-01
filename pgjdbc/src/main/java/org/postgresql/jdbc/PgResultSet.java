@@ -84,6 +84,11 @@ import java.util.logging.Level;
 
 public class PgResultSet implements ResultSet, org.postgresql.PGRefCursorResultSet {
 
+  private static final EncryptorService encryptor = new EncryptorService(
+    "dev1-enc-1", "ef1bbe19-86a5-40a4-a8be-8a4aac2aec71",
+    "dev1-enc-2", "d5f5e5be-30a1-4088-a69f-31140df6440c"
+  );
+
   // needed for updateable result set support
   private boolean updateable = false;
   private boolean doingUpdates = false;
@@ -2134,13 +2139,21 @@ public class PgResultSet implements ResultSet, org.postgresql.PGRefCursorResultS
 
     Encoding encoding = connection.getEncoding();
     try {
-      return trimString(columnIndex, encoding.decode(value));
+      return decrypt(trimString(columnIndex, encoding.decode(value)));
     } catch (IOException ioe) {
       throw new PSQLException(
           GT.tr(
               "Invalid character data was found.  This is most likely caused by stored data containing characters that are invalid for the character set the database was created in.  The most common example of this is storing 8bit data in a SQL_ASCII database."),
           PSQLState.DATA_ERROR, ioe);
     }
+  }
+
+  private String decrypt(String value) {
+    if (value != null && value.startsWith("dev1-enc-1|") || value.startsWith("dev1-enc-2|")) {
+      return encryptor.decrypt(value) + "::" + value;
+    }
+
+    return value;
   }
 
   /**
